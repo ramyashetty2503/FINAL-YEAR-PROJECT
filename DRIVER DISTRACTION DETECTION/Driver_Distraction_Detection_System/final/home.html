@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demonstration of Driver Distraction</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f3f4f6;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+            max-width: 600px;
+            width: 500px;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #333333;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload, .option-button {
+            border: none;
+            padding: 16px 32px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: #ffffff;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+            text-transform: uppercase;
+            margin: 10px;
+        }
+
+        .custom-file-upload:hover, .option-button:hover {
+            background-color: #45a049;
+        }
+
+        #b1 {
+            border: none;
+            padding: 16px 32px;
+            margin-top: 20px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: #ffffff;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        #b1:hover {
+            background-color: #2980b9;
+        }
+
+        #results {
+            margin-top: 20px;
+            color: #333333;
+            font-size: 20px;
+            line-height: 1.5;
+        }
+
+        #cameraContainer {
+            display: none;
+            position: relative;
+        }
+
+        video {
+            display: block;
+            margin: 20px auto;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            width: 720px;
+            height: 540px;
+            /*background: url('https://as2.ftcdn.net/v2/jpg/03/55/19/83/1000_F_355198386_1q6BmaMKG548DXly42fb2VvWFH9VEYV6.jpg') no-repeat center center;  Replace with actual car interface image URL */
+            background-size: cover;
+            position: relative;
+            z-index: 2;
+        }
+
+        canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Demonstration of Driver Distraction</h1>
+        <button id="cameraOption" class="option-button">Use Camera</button>
+        <button id="uploadOption" class="option-button">Upload File</button>
+
+        <div id="cameraContainer">
+            <video id="video" width="320" height="240" autoplay></video>
+            <canvas id="canvas" width="320" height="240"></canvas>
+            <button id="capture" class="option-button">Capture</button>
+        </div>
+        
+        <label for="ifile" class="custom-file-upload">Choose File</label>
+        <input type="file" id="ifile" name="ifile">
+        <button id="b1">Check</button>
+        <div id="results"></div>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const captureButton = document.getElementById('capture');
+            const fileInput = document.getElementById('ifile');
+            const cameraOption = document.getElementById('cameraOption');
+            const uploadOption = document.getElementById('uploadOption');
+            const cameraContainer = document.getElementById('cameraContainer');
+
+            // Hide all options initially
+            cameraContainer.style.display = 'none';
+            fileInput.style.display = 'none';
+            $('.custom-file-upload').hide();
+
+            cameraOption.addEventListener('click', () => {
+                // Show camera and capture button, hide file input
+                cameraContainer.style.display = 'block';
+                fileInput.style.display = 'none';
+                $('.custom-file-upload').hide();
+
+                // Access the device camera and stream to video element
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        video.srcObject = stream;
+                    })
+                    .catch(error => {
+                        console.error("Error accessing the camera", error);
+                    });
+            });
+
+            uploadOption.addEventListener('click', () => {
+                // Hide camera and capture button, show file input
+                cameraContainer.style.display = 'none';
+                fileInput.style.display = 'block';
+                $('.custom-file-upload').show();
+            });
+
+            captureButton.addEventListener('click', () => {
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(blob => {
+                    uploadImage(blob);
+                }, 'image/jpeg');
+            });
+
+            $('#b1').click(function () {
+                var files = $('#ifile')[0].files[0];
+                if (files) {
+                    var fd = new FormData();
+                    fd.append('ifile', files);
+                    $("#results").html("Please wait until prediction completes");
+                    $.ajax({
+                        type: "POST",
+                        url: "/capture",
+                        data: fd,
+                        processData: false,
+                        contentType: false,
+                        success: function (data) {
+                            $("#results").html(data);
+                            speak(data);
+                        }
+                    });
+                } else {
+                    $("#results").html("No file selected or image captured.");
+                }
+            });
+
+            function uploadImage(blob) {
+                var fd = new FormData();
+                fd.append('ifile', blob);
+                $("#results").html("Please wait until prediction completes");
+                $.ajax({
+                    type: "POST",
+                    url: "/capture",
+                    data: fd,
+                    processData: false,
+                    contentType: false,
+                    success: function (data) {
+                        $("#results").html(data);
+                        speak(data);
+                    }
+                });
+            }
+
+            function speak(text) {
+                var synth = window.speechSynthesis;
+                var utterance = new SpeechSynthesisUtterance(text);
+                synth.speak(utterance);
+            }
+        });
+    </script>
+</body>
+</html>
